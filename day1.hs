@@ -10,10 +10,14 @@ digitize' :: String -> [Int]
 digitize' = map (read . pure)
 
 
+pairUp :: Int -> [a] -> [(a, a)]
+pairUp n = zip <*> (drop n . cycle)
+
 matchDigits :: String -> Int -> [Int]
 matchDigits inp stride = let digits = digitize inp
-                             pairs = zip <*> (drop stride . cycle) $ digits
+                             pairs = pairUp stride digits
                          in [x | (x,y) <- pairs, x == y]
+
 
 puzzle1 = sum (matchDigits input 1)
 puzzle2 = sum (matchDigits input (div (length input) 2))
