@@ -23,5 +23,6 @@ puzzle1 = sum (matchDigits input 1)
 puzzle2 = sum (matchDigits input (div (length input) 2))
 
 
+-- Answers should be 1228 and 1238
 main = do print puzzle1
           print puzzle2
