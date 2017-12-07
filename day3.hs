@@ -44,21 +44,21 @@ update (x, y) = \d -> case d of
 
 -- Puzzle 2 - fill in order each square with the sum of adjacent squares
 --            unvisited squares are zeroed
--- s1 == 1
--- s2 == s1
--- s3 == s1 + s2
--- s4 == s1 + s2 + s3
--- s5 == s1 + s4
 type Grid = M.Map (Int, Int) Integer
-
 
 neighbors (x,y) = (,) <$> [x-1,x,x+1] <*> [y-1,y,y+1]
 
-addPosition :: (Int, Int) -> Grid -> Grid
-addPosition square g = M.insert square value g
+addPosition :: Grid -> (Int, Int) -> Grid
+addPosition g square = M.insert square value g
                        where value = sum [M.findWithDefault 0 p g | p <- neighbors square]
 
-foo = scanl (flip addPosition) (M.singleton (0,0) 1) (drop 1 computePositions)
+filledGrid :: [Grid]
+filledGrid = scanl addPosition (M.singleton (0,0) 1) (drop 1 computePositions)
+
+-- Trial and error with
+-- (\n -> (filledGrid !! n) M.! (computePositions !! n))
+-- showed that position 59 got the value 295229
+-- Should still write a search function that returns it for me
 
 
 
