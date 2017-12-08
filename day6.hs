@@ -52,12 +52,30 @@ run m = do
           else put (S.insert m' seen) >> run m'
 
 
+-- How long until we hit an infinite loop?
 puzzle1 s = let sizes = read <$> words s
                 m = createMemory sizes
             in evalState (run m) (S.singleton m)
-puzzle2 s = 0
+
+--  How many cycles are in the infinite loop?
+--  Number each set as it is added, but set equality
+--  is based on on the set, not its label
+
+run2 :: Memory -> Int -> State [(Memory, Int)] Int
+run2 m curr = do
+         seen <- get
+         let m' = mancala m
+         case lookup m' seen of
+          Just n -> return (curr - n)
+          Nothing -> put ((m', curr):seen) >> run2 m' (curr + 1)
+
+
+-- How long until we hit an infinite loop?
+puzzle2 s = let sizes = read <$> words s
+                m = createMemory sizes
+            in evalState (run2 m 0) [(m,0)]
 
 main = do 
        s <- readFile "day6.input"
        print (puzzle1 s) -- 11137
-       print (puzzle2 s)
+       print (puzzle2 s) -- 1037
