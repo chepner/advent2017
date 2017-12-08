@@ -26,22 +26,33 @@ step n = do
               new_position = n + offset
           put (count + 1, program A.// [(n, offset + 1)])
           return new_position
+
+step2 :: StepSize 
+     -> State (Count, Program) Int -- New position with incremented program
+step2 n = do
+          (count, program) <- get
+          let offset = program A.! n
+              new_position = n + offset
+              modify val | val >= 3 = val - 1
+                         | otherwise = val + 1
+          put (count + 1, program A.// [(n, modify offset)])
+          return new_position
           
 
 -- Given a program, run the program and return
 -- the number of steps taken.
-runProgram :: Program -> Int
-runProgram p = fst $ execState (run' 0) (0, p)
+runProgram :: (StepSize -> State (Count, Program) Int) -> Program -> Int
+runProgram step p = fst $ execState (run' 0) (0, p)
    where run' i = do
              new <- step i
-             --trace (show new) (return ())
              if new >= length p then get else run' new
                
 
 
-puzzle1 = runProgram . program
-puzzle2 = const 0
+puzzle1 = runProgram step . program
+puzzle2 = runProgram step2 . program
 
 main = do 
-     puzzle1 <$> readFile "day5.input"  >>= print -- 356945
-     puzzle2 <$> readFile "day5.input"  >>= print
+       s <- readFile "day5.input"
+       print (puzzle1 s) --   356945
+       print (puzzle2 s) -- 28372145
