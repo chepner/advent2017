@@ -68,6 +68,9 @@ parseLine s = let p = do {
 
               in T.parse p "" s
 
+-- Function data structres are hard. Keeping this crap just in case I still
+-- need to figure it out for Puzzle 2.
+--
 -- Partition the tree descriptions; leaves get turned into ProcessTree values,
 -- TreeDescriptions are passed to Phase Two
 buildTreePhaseOne :: [TreeDescription] -> ([ProcessTree], [TreeDescription])
@@ -94,14 +97,25 @@ buildTree (n, w, ch) = do
     return newTree
                     
 
-puzzle1 s = let Right (pts, tds) = buildTreePhaseOne <$> traverse parseLine (lines s)
-                initialState = (M.fromList [(n,pt) | pt@(PT n _ _) <- pts],
-                                M.fromList [(n,td) | td@(n, _, _) <- tds])
-                PT n w _ = evalState (buildTree (head tds)) initialState
-            in n
+badRootFinder s = let Right (pts, tds) = buildTreePhaseOne <$> traverse parseLine (lines s)
+                      initialState = (M.fromList [(n,pt) | pt@(PT n _ _) <- pts],
+                                      M.fromList [(n,td) | td@(n, _, _) <- tds])
+                      PT n w _ = evalState (buildTree (head tds)) initialState
+                  in n
+
+-- Puzzle 1, however, is easier to just walk through an association list or map
+
+
+findRoot :: [TreeDescription] -> Name
+findRoot tds@((n,_,_):_) = go n (tds >>= (\(p,_,cs) -> zip cs (repeat p)))
+                           where go c ps = case lookup c ps of
+                                            Nothing -> c
+                                            Just p -> go p ps
+     
+puzzle1 s = fmap findRoot (traverse parseLine (lines s))
 puzzle2 s = 0
 
 main = do 
-       s <- readFile "day7.input"  -- not yquqk
-       print (puzzle1 s)
+       s <- readFile "day7.input"
+       print (puzzle1 s) -- mwzaxaj
        print (puzzle2 s)
