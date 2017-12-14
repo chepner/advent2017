@@ -1,4 +1,5 @@
 import qualified Data.Map as M
+import Control.Monad
 import Control.Applicative
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
@@ -91,11 +92,28 @@ puzzle1 = findRoot
 --
 
 
-puzzle2 tds = 0
+data RoseTree a = RT a [RoseTree a]
+
+printRoseTree :: Show a => RoseTree a -> IO ()
+  
+printRoseTree rt =  let strList = withIndent "" rt
+                        printList [] = return ()
+                        printList (x:xs) = putStrLn x >> printList xs
+                        withIndent pfx (RT root ch) = (pfx ++ show root) : (ch >>= (withIndent (' ':pfx)))
+                    in printList (withIndent "" rt)
+
+puzzle2 :: Name -> Reader [(Name, TreeDescription)] (RoseTree (Name, Weight))
+puzzle2 n = do
+   tds <- ask
+   let (name, weight, ch) = maybe undefined id (lookup n tds)
+   children <- traverse puzzle2 ch
+   return (RT (name, weight) children)
 
 main = do 
        s <- readFile "day7.input"
        let Right tds = parseDescriptions s
        let root = puzzle1 tds -- mwzaxaj
        print root
-       print (puzzle2 s)
+       let m = [(n, td) | td@(n,_,_) <- tds]
+           rt = runReader (puzzle2 root) m
+       printRoseTree rt
