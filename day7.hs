@@ -1,6 +1,7 @@
 import qualified Data.Map as M
 import Control.Applicative
 import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
 import Data.Functor.Identity
 import qualified Text.Parsec as T
 import qualified Text.Parsec.Token as Tok
@@ -68,54 +69,33 @@ parseLine s = let p = do {
 
               in T.parse p "" s
 
--- Function data structres are hard. Keeping this crap just in case I still
--- need to figure it out for Puzzle 2.
---
--- Partition the tree descriptions; leaves get turned into ProcessTree values,
--- TreeDescriptions are passed to Phase Two
-buildTreePhaseOne :: [TreeDescription] -> ([ProcessTree], [TreeDescription])
-buildTreePhaseOne xs = go ([], []) xs
-  where go result [] = result
-        go (leaves, trees) ((n,w,[]):xs) = go ((PT n w [] : leaves), trees) xs
-        go (leaves, trees) (x:xs) = go (leaves, x:trees) xs
 
-type TreeMap a = M.Map Name a
-type Partials = (TreeMap ProcessTree, TreeMap TreeDescription)
-
-buildTree :: TreeDescription -> State Partials ProcessTree
-buildTree (n, w, ch) = do
-    (pts, tds) <- get
-    let fallBack :: Name -> State Partials ProcessTree
-        fallBack n = buildTree (M.findWithDefault undefined n tds)
-        getChild :: Name -> State Partials ProcessTree
-        getChild n = case M.lookup n pts of
-                      Just pt -> pure pt
-                      Nothing -> buildTree (M.findWithDefault undefined n tds)
-    children <- traverse getChild ch
-    let newTree = PT n w children
-    put (M.insert n newTree pts, tds)
-    return newTree
-                    
-
-badRootFinder s = let Right (pts, tds) = buildTreePhaseOne <$> traverse parseLine (lines s)
-                      initialState = (M.fromList [(n,pt) | pt@(PT n _ _) <- pts],
-                                      M.fromList [(n,td) | td@(n, _, _) <- tds])
-                      PT n w _ = evalState (buildTree (head tds)) initialState
-                  in n
-
--- Puzzle 1, however, is easier to just walk through an association list or map
-
+-- Puzzle 1, find the root of the tree. Just pick an arbitrary
+-- child and walk up.
 
 findRoot :: [TreeDescription] -> Name
-findRoot tds@((n,_,_):_) = go n (tds >>= (\(p,_,cs) -> zip cs (repeat p)))
-                           where go c ps = case lookup c ps of
+findRoot tds@((n,_,_):_) = go n parents
+                           where parents = tds >>= \(p,_,cs) -> zip cs (repeat p)
+                                 go c ps = case lookup c ps of
                                             Nothing -> c
                                             Just p -> go p ps
      
-puzzle1 s = fmap findRoot (traverse parseLine (lines s))
-puzzle2 s = 0
+parseDescriptions :: String -> Either T.ParseError [TreeDescription]
+parseDescriptions = traverse parseLine . lines
+
+puzzle1 :: [TreeDescription] -> Name
+puzzle1 = findRoot
+
+--- Puzzle 2 - find the node with an incorrect weight,
+--  and determine the weight that will balance the tree
+--
+
+
+puzzle2 tds = 0
 
 main = do 
        s <- readFile "day7.input"
-       print (puzzle1 s) -- mwzaxaj
+       let Right tds = parseDescriptions s
+       let root = puzzle1 tds -- mwzaxaj
+       print root
        print (puzzle2 s)
