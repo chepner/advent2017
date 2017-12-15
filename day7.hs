@@ -6,6 +6,7 @@ import Control.Monad.Trans.Reader
 import Data.Functor.Identity
 import qualified Text.Parsec as T
 import qualified Text.Parsec.Token as Tok
+import qualified Data.Set as S
 
 type Name = String
 type Weight = Int
@@ -96,24 +97,38 @@ data RoseTree a = RT a [RoseTree a]
 
 printRoseTree :: Show a => RoseTree a -> IO ()
   
-printRoseTree rt =  let strList = withIndent "" rt
-                        printList [] = return ()
+printRoseTree rt =  let printList [] = return ()
                         printList (x:xs) = putStrLn x >> printList xs
                         withIndent pfx (RT root ch) = (pfx ++ show root) : (ch >>= (withIndent (' ':pfx)))
                     in printList (withIndent "" rt)
 
-puzzle2 :: Name -> Reader [(Name, TreeDescription)] (RoseTree (Name, Weight))
-puzzle2 n = do
+buildTree :: Name -> Reader [(Name, TreeDescription)] (RoseTree (Name, Weight, Weight, [Weight]))
+buildTree n = do
    tds <- ask
    let (name, weight, ch) = maybe undefined id (lookup n tds)
-   children <- traverse puzzle2 ch
-   return (RT (name, weight) children)
+   children <- traverse buildTree ch
+   --let ss = weight + sum . map (\(RT (n, w, ss) _) -> ss) $ children
+   let getStackSize (RT (_, _, ss, _) _) = ss
+       childStackSizes = map getStackSize children
+   return (RT (name, weight, weight + sum childStackSizes, childStackSizes) children)
 
+
+{-
+ - OK, here's how I solved Puzzle 2. Printing out the entire tree, I noted the root had
+ - the following child stack sizes: [67398,67398,67398,67398,67405,67398,67398] Looking
+ - for the child with the odd size 67405, I find *its* odd child and repeat. Eventually,
+ - I got to  ("ihnus",40,15160,[2166,2159,2159,2159,2159,2159,2159])
+ -            ("vrgxe",1226,2166,[235,235,235,235])
+ - from which you can see that vrgxe needs a weight of 1226 - 7 = 1219 so that all
+ - of ihnus's children have a size of 2166 - 7 = 2159.
+ -
+ - Ugh. I'm sick of this puzzle. I'm not implementing the above search just yet.
+ -}
 main = do 
        s <- readFile "day7.input"
        let Right tds = parseDescriptions s
        let root = puzzle1 tds -- mwzaxaj
        print root
        let m = [(n, td) | td@(n,_,_) <- tds]
-           rt = runReader (puzzle2 root) m
+           rt = runReader (buildTree root) m
        printRoseTree rt
