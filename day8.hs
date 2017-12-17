@@ -1,3 +1,4 @@
+import Control.Monad
 import Control.Monad.Trans.State
 import Control.Monad.Trans.State
 import Data.Functor.Identity
@@ -5,11 +6,10 @@ import qualified Data.Map.Strict as M
 import qualified Text.Parsec as T
 import qualified Text.Parsec.Token as Tok
 
-{-
- - After parsing a line, initialize any new registers to 0
- -}
 
 type Registers = M.Map String Integer
+
+{- Language parser -}
 
 langdef = Tok.LanguageDef {
   Tok.commentStart = ""
@@ -29,56 +29,75 @@ lexer :: Tok.GenTokenParser String () Identity
 lexer = Tok.makeTokenParser langdef
 
 type Parser = T.Parsec String ()
-data Instruction = Inc | Dec deriving Show
+data ModOp = Inc | Dec deriving Show
 
 register :: Parser String
-register = T.many T.letter
+register = Tok.identifier lexer
 
 integer :: Parser Integer
-integer = rd <$> (minus T.<|> number)
-    where rd = read
-          minus = (:) <$> T.char '-' <*> number 
-          number = T.many1 T.digit
+integer = Tok.integer lexer
 
-instruction :: Parser Instruction
+instruction :: Parser ModOp
 instruction = do
    d <- T.string "inc" T.<|> T.string "dec"
    return (if d == "inc" then Inc  else Dec)
 
-{-
-condition :: Parser (String, String -> Bool)
-condition :: do
-  T.string "if"
-  srcName <- register
-  op <- T.oneOf $ map (Tok.symbol lexer) [">" ,  "<" ,  "!=" ,  "==" ,  ">=" ,  "<=" ]
-  val <- T.option (T.char "-") >> (T.many T.digit)  -- Parse an integer
-  return (reg, (\x -> x `op` val))
+type CompOp = Integer -> Integer -> Bool
 
--}
+compOp :: Parser CompOp
+compOp = do
+    op <- whitespace >> T.choice (map (T.try . T.string) ["!=", "==", ">=", "<=", ">", "<"])
+    return $ case op of
+        "==" -> (==)
+        "!=" -> (/=)
+        ">" -> (>)
+        "<" -> (<)
+        ">=" -> (>=)
+        "<=" -> (<=)
 
 whitespace = Tok.whiteSpace lexer
 
-parseLine :: String -> Either T.ParseError (String, Instruction, Integer, String, String, Integer)
+type Instruction = (String, ModOp, Integer, String, CompOp, Integer)
+
+parseLine :: String -> Either T.ParseError Instruction
 parseLine s = let p = do target <- register
                          dir <- whitespace >> instruction
                          value <- whitespace >>  integer
                          whitespace >> T.string "if"
                          test <- whitespace >> register
-                         op <- whitespace >> T.choice (map (T.try . T.string) ["!=", "==", ">=", "<=", ">", "<"])
+                         op <- compOp
                          value2 <- whitespace >> integer
                          return (target, dir, value, test, op, value2)
               in T.parse p "" s
-                    
 
- 
 
-puzzle1 :: Registers -> Integer
-puzzle1 = maximum
+{- Language evaluator -}
+evalLine :: Instruction -> State Registers ()
+evalLine (target, op1, val1, test, op2, val2) = do
+    regs <- get
+    let targVal = M.findWithDefault 0 target regs
+        condition = (M.findWithDefault 0 test regs) `op2` val2
+        replVal = if condition then val1 else 0
+        newVal = case op1 of
+                   Inc -> targVal + replVal
+                   Dec -> targVal - replVal
+        newRegs = M.insert target newVal regs
+    put newRegs
+
+
+type Program = [Instruction]
+
+evalProgram :: Program -> Registers
+evalProgram pg = execState (foldM (const evalLine) () pg) M.empty
+
+puzzle1 :: Program -> Integer
+puzzle1 = maximum . evalProgram
 
 puzzle2 s = 0
+
 main = do 
        s <- readFile "day8.input"
-       traverse (print . parseLine) (lines s)
-       --print $ puzzle1 s
+       let Right program = traverse parseLine (lines s)
+       print $ puzzle1 program -- 5752
        print $ puzzle2 s
 
