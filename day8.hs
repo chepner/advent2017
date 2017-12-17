@@ -72,9 +72,9 @@ parseLine s = let p = do target <- register
 
 
 {- Language evaluator -}
-evalLine :: Instruction -> State Registers ()
+evalLine :: Instruction -> State (Registers, Maybe Integer) ()
 evalLine (target, op1, val1, test, op2, val2) = do
-    regs <- get
+    (regs, currMax) <- get
     let targVal = M.findWithDefault 0 target regs
         condition = (M.findWithDefault 0 test regs) `op2` val2
         replVal = if condition then val1 else 0
@@ -82,22 +82,22 @@ evalLine (target, op1, val1, test, op2, val2) = do
                    Inc -> targVal + replVal
                    Dec -> targVal - replVal
         newRegs = M.insert target newVal regs
-    put newRegs
+        newMax = Just $ maybe newVal (max newVal) currMax
+    put (M.insert target newVal regs, newMax)
 
 
 type Program = [Instruction]
 
-evalProgram :: Program -> Registers
-evalProgram pg = execState (foldM (const evalLine) () pg) M.empty
+evalProgram :: Program -> (Registers, Maybe Integer)
+evalProgram pg = execState (foldM (const evalLine) () pg) (M.empty, Nothing)
 
-puzzle1 :: Program -> Integer
-puzzle1 = maximum . evalProgram
+puzzle :: Program -> Maybe Integer
+puzzle = snd . evalProgram
 
 puzzle2 s = 0
 
 main = do 
        s <- readFile "day8.input"
        let Right program = traverse parseLine (lines s)
-       print $ puzzle1 program -- 5752
-       print $ puzzle2 s
+       print $ puzzle program -- 6366
 
