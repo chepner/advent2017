@@ -68,8 +68,16 @@ score g = score' 1 (Right g)
   where score' :: Int -> Either Garbage Group -> Int
         score' n (Right (Group g)) = n + sum (map (score' (n+1)) g)
         score' n (Left g) = 0
+
+count :: Group -> Int
+count g = count' (Right g)
+  where count' :: Either Garbage Group -> Int
+        count' (Right (Group g)) = sum (map count' g)
+        count' (Left (Garbage ('!':x:ys))) = count' (Left (Garbage ys))
+        count' (Left (Garbage (y:ys))) = 1 + count' (Left (Garbage ys))
+        count' (Left (Garbage [])) = 0
   
 
 main = do
    s <- readFile "day9.input"
-   print $ fmap score (parse group "" s) -- 11089
+   print $ fmap Day9.count (parse group "" s) -- 5288
