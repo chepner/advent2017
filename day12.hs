@@ -29,3 +29,4 @@ main = do
       (graph, _, _) = G.graphFromEdges [(n,n,e) | (n, e) <- adjList ]
       reachableCount = map length $ G.dfs graph [0]
   print reachableCount -- 169
+  print $ length (G.scc graph) -- 179
