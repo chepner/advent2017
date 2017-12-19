@@ -4,6 +4,11 @@ import qualified Text.Parsec as T
 import Control.Monad.Trans.State
 import Control.Monad
 import Debug.Trace
+import Data.Char
+import Data.List
+import Data.List.Split
+import Data.Bits
+import Text.Printf
 
 type List = ( [Int]  -- State of the circular list
             , Int    -- current position
@@ -26,19 +31,19 @@ step inpLength = do
                           take (cp - extra) (drop extra list) ++
                           take (inpLength - extra) revSublist
        newState = (newList, (cp + inpLength + ss) `mod` n, ss + 1)
-   put (trace (show newState) newState)
+   put newState
 
-puzzle1 :: [Int] -> State List ()
-puzzle1 = foldM (const step) ()
+puzzle :: [Int] -> State List ()
+puzzle = foldM (const step) ()
 
-parseInput = T.parse inputP ""
-    where inputP = T.sepBy (T.many T.digit) (T.char ',')
+parseInput = (++ [17,31,73,47,23]) . map ord
 
 main = do
    s <- readFile "day10.input"
-   let Right inputs = fmap (map read) $ parseInput s
-   let ((x:y:_),_,_) = execState (puzzle1 inputs) initialState
-   print $ x * y  -- Not 506 or 72. I was going to be surprised if that were right
-    -- 34717 is too low...
-    -- 38415!
+   let inputs = concat . replicate 64 . parseInput $ s
+       (sparseHash, _, _) = execState (puzzle inputs) initialState
+       denseHash = map (foldl1' xor) . chunksOf 16 $ sparseHash
+   putStrLn $ denseHash >>= printf "%02x"
+-- Not c498762dc2a7a03f10672138ac31dde
+-- Not c498762dc2a7a03f100672138ac31dde either
    
