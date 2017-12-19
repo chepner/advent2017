@@ -40,10 +40,12 @@ parseInput = (++ [17,31,73,47,23]) . map ord
 
 main = do
    s <- readFile "day10.input"
-   let inputs = concat . replicate 64 . parseInput $ s
+   putStrLn (show s)
+   let inputs = concat . replicate 64 . parseInput . init $ s
        (sparseHash, _, _) = execState (puzzle inputs) initialState
        denseHash = map (foldl1' xor) . chunksOf 16 $ sparseHash
    putStrLn $ denseHash >>= printf "%02x"
 -- Not c498762dc2a7a03f10672138ac31dde
 -- Not c498762dc2a7a03f100672138ac31dde either
-   
+  -- It's 9de8846431eef262be78f590e39a4848; I forgot to strip the newline from the input,
+  -- which wasn't a problem with the parser, apparently.
