@@ -15,14 +15,15 @@ parseLine :: String -> Either T.ParseError FirewallLayer
 parseLine = let p = do depth <- Tok.integer lexer
                        Tok.symbol lexer ": "
                        range <- Tok.integer lexer
-                       return (fromIntegral depth, fromIntegral range)
+                       return (depth, range)
             in T.parse p ""
                    
 
-type Depth = Int
-type Range = Int
-type Time = Int
-type Severity = Int
+type Depth = Integer
+type Range = Integer
+type Time = Integer
+type Delay = Integer
+type Severity = Integer
 type FirewallLayer = (Depth, Range)
 type Firewall = M.Map Depth Range
 
@@ -32,18 +33,48 @@ severity t = do
    let period r = 2 * r - 2
    return $ case M.lookup t fw of
              Nothing -> 0 -- No scanner at this depth
-             Just p ->  if t `mod` (period p) == 0 then p * t else 0
+             Just r ->  if t `mod` (period r) == 0 then r * t else 0
 
--- r == 1: 0 0 0 0 0 0  ...  (p = 0)
--- r == 2: 0 1 0 1 0 1  ...  (p = 2)
--- r == 3: 0 1 2 1 0 1  ...  (p = 4)
--- r == 4: 0 1 2 3 2 1  ...  (p = 6)
--- r'    : 0 1 ... r-2 r-1 r-2 ... (p = 2(r-1) = 2r - 2)
+severity2 :: Delay -> Time -> Reader Firewall Severity
+severity2 d t = do
+   fw <- ask
+   let period r = 2 * r - 2
+       depth = t - d
+   return $ case M.lookup depth fw of
+             Nothing -> 0 -- No scanner at this depth
+             Just r ->  if t `mod` (period r) == 0 then r * depth else 0
+
+run :: Reader Firewall Severity
+run = do
+    fw <- ask
+    let s = maximum $ M.keys fw 
+    severities <- traverse severity [0..s]
+    return $ sum severities
+
+runWithDelay :: Delay -> Reader Firewall Severity
+runWithDelay d = do
+    fw <- ask
+    let s = maximum $ M.keys fw 
+        delayedTimes = map (+d) [0..s]
+    severities <- traverse (severity2 d) delayedTimes
+    return $ sum severities
+
+findMinDelay :: Reader Firewall Delay
+findMinDelay = do
+    fw <- ask
+    let foo' d = let s = runReader (runWithDelay d) fw
+                     msg = "Severity at " ++ show d ++ " is " ++ show s
+                 in if (trace msg s) == 0 then return d else foo' (d + 1)
+    foo' 0
 
 main = do
-  s <- lines <$> readFile "day13.input" -- [String]
+  s <- lines <$> readFile "day13.sample" -- [String]
   let Right firewall = M.fromList <$> (traverse parseLine s) -- firewall :: Firewall
-      maxD = maximum $ M.keys firewall
-      severities = traverse severity [0..maxD - 1]
-  print $ sum ( runReader severities firewall) -- 2164
+      puzzle1 = runReader run firewall
+      puzzle2 = runReader findMinDelay firewall
+  puzzle2 `seq` putStrLn "====="
+  putStrLn $ "Puzzle 1: total severity is " ++ (show puzzle1) -- 2164
+  putStrLn $ "Shortest safe delay is " ++ (show puzzle2)
+-- Puzzle 2 - find min delay that produces severity 0. It's not 67 or 66
+-- It's not 168108, either; that's too low...
 
